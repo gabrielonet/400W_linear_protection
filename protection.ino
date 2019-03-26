@@ -30,6 +30,9 @@ tft.setTextColor(TFT_WHITE);  // Text colour
 tft.drawCentreString("YO8RXP 300W HF 1-30 Mhz AMPLIFIER", 240,10, 4);
 tft.drawFastHLine(2, 35, 476, TFT_WHITE);
 tft.drawRect(20, 200, 440, 50, TFT_WHITE);
+
+
+
 tft.setTextColor(TFT_RED);
 tft.drawCentreString("TRANSMITING !", 150,215, 4);
 tft.setTextColor(TFT_WHITE);
@@ -68,6 +71,21 @@ if ( (time2 -time1) >= 200  ){
 }
 
 void drawScale(){ 
+
+tft.drawFastHLine(70, 60, 400, TFT_WHITE);
+for (int i = 0; i <= 400; i+=20) {
+    tft.drawFastVLine(70+i , 60, 15, TFT_WHITE);
+      }
+for (int i = 10; i <= 390; i+=20) {
+    tft.drawFastVLine(70+i , 60, 7, TFT_WHITE);
+      }
+tft.drawCentreString("0", 70,40, 2); 
+tft.drawCentreString("100", 170,40, 2);      
+tft.drawCentreString("200", 270,40, 2);      
+tft.drawCentreString("300", 370,40, 2);      
+tft.drawCentreString("400", 460,40, 2);      
+     
+
 tft.drawCentreString("FWD", 30,85, 2);  
 tft.drawCentreString("REF", 30,125, 2);
 tft.fillRect(70,80,400,30,TFT_GREY);
@@ -102,7 +120,6 @@ tft.fillRect(382,201,50,39,TFT_BLACK);
 tft.drawCentreString("SWR =",340,215,4);
 tft.drawCentreString(vswr_printout,400,215,4);
 }
-
 
 
 
