@@ -1,6 +1,6 @@
-#include <avr/dtostrf.h>
-#include <TFT_HX8357_Due.h> // Hardware-specific library
-TFT_HX8357_Due tft = TFT_HX8357_Due(); // Invoke custom library
+// #include <avr/dtostrf.h>
+#include <TFT_HX8357.h> // Hardware-specific library
+TFT_HX8357 tft = TFT_HX8357(); // Invoke custom library
 #define TFT_GREY 0x5AEB
 // Color Pallette
 #define BACKCOLOR 0x0000
@@ -36,7 +36,7 @@ tft.drawRect(20, 200, 440, 50, TFT_WHITE);
 tft.setTextColor(TFT_RED);
 tft.drawCentreString("TRANSMITING !", 150,215, 4);
 tft.setTextColor(TFT_WHITE);
-
+float vswr;
 
 tft.drawFastHLine(2, 283, 476, TFT_WHITE);
 tft.drawCentreString("| PTT | ALARM | ONLINE | 3.5 MHZ |", 240,290, 4);
@@ -47,11 +47,14 @@ void loop(){
   
 int fwd_newPercent;
 int ref_newPercent;
-float vswr = (float(fwd_value+ref_value)/(fwd_value-ref_value)) ;
 fwd_value = analogRead(analogIn1);
 fwd_newPercent = int((fwd_value/1024.0)* 100.0)*4;
 ref_value = analogRead(analogIn2);
 ref_newPercent = int((ref_value/1024.0)* 100.0)*4;
+
+if (fwd_value > 10 ){
+vswr = (float(fwd_value+ref_value)/(fwd_value-ref_value)) ;
+}  else { vswr = 1; }
 
 
 if (fwd_newPercent != fwd_LastPercent){
@@ -63,7 +66,7 @@ drawBar_REF(ref_newPercent);
 
 time2 = millis();
 
-if ( (time2 -time1) >= 200  ){
+if ( (time2 -time1) >= 200   ){
       screen(vswr);
       time1 = millis();
     }
@@ -120,6 +123,3 @@ tft.fillRect(382,201,50,39,TFT_BLACK);
 tft.drawCentreString("SWR =",340,215,4);
 tft.drawCentreString(vswr_printout,400,215,4);
 }
-
-
-
