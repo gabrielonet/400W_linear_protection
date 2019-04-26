@@ -1,3 +1,9 @@
+27_April_2019
+Got PTT line executed via intrerupts
+Got encoder executed via intrerupts
+Got encoder switch via intrerupts
+#############################################################################
+
 TODO 
 something is wrong !!
 Coz arduino is not multithreading , in main loop I cannot simple insert Dallas DS18B20 temperature sensor since it takes about
