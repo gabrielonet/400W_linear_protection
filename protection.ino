@@ -105,6 +105,8 @@ void setup() {
     pinMode(5, OUTPUT) ; // 18-21 Mhz bandpass selection
     pinMode(6, OUTPUT) ; // 24-28 Mhz bandpass selection
     pinMode(7, OUTPUT) ; //    50 Mhz bandpass selection
+    pinMode(8, OUTPUT) ; //    PTT output - receive LOW , transmit HIGH 
+    digitalWrite(8, LOW) ; // Set PTT ooutput on receive
     pinMode(9, OUTPUT) ;       // PWM FAN Controll
     attachInterrupt (2, encoder, CHANGE);   // pin 20
     attachInterrupt (3, encoder, CHANGE);   // pin 21
@@ -158,6 +160,7 @@ void swr (float test){
 
 void(* resetFunc) (void) = 0;//declare reset function at address 0
 void fault (){
+    digitalWrite(8, LOW);
     tft.fillScreen(TFT_RED);
     tft.drawCentreString("LAST SWR OVER 2.0 !!!",200,115,4);
     tft.drawCentreString("Wait 5 seconds for auto  RESET !",200,215,4);
@@ -167,8 +170,8 @@ void fault (){
 
 void ptt(){
   tft.fillRect(70,230,150,30,TFT_BLACK);   
-  if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;}  
-  else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;}
+  if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;digitalWrite(8, HIGH);}  
+  else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;digitalWrite(8, LOW);}
   } 
 
   
