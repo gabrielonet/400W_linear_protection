@@ -71,7 +71,6 @@ void encoder (){
 }  
 
 void setup() {
-    //Serial.begin(9600) ; 
     time1 = millis();
     tft.begin();
     tft.setRotation(1);
@@ -213,7 +212,6 @@ void bandpass_filters(int freq){
     tft.drawCentreString(band1, 290,290, 4);   
     tft.setTextColor(TFT_WHITE);
     freq_temp = freq;
-    //Serial.println(band1);
   }
 }
 void loop(){
