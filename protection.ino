@@ -1,18 +1,16 @@
 #include <TFT_HX8357.h> // Hardware-specific library
-TFT_HX8357 tft = TFT_HX8357(); // Invoke custom library
 #include <OneWire.h> 
-
-volatile long rotaryCount = 0;
-static byte PinA = 0 ;
-static byte PinB = 0 ;  
-int sw_pin_temp = 1 ; 
 #define TFT_GREY 0x5AEB
 // Color Pallette
 #define BACKCOLOR 0x0000
 #define BARCOLOR 0x0620
 #define SCALECOLOR 0xFFFF
+TFT_HX8357 tft = TFT_HX8357(); // Invoke custom library
 
-//Analog Measurement Declarations
+volatile long rotaryCount = 0;
+static byte PinA = 0 ;
+static byte PinB = 0 ;  
+int sw_pin_temp = 1 ; 
 const int analogIn1 = A0;
 const int analogIn2 = A7;
 float vswr = 0;
@@ -30,59 +28,50 @@ int fault_param = 0;
 int mode = 0 ;
 int sensor =  20 ;
 float fan_speed = 0 ; 
-
-
-// Interrupt Service Routine
-void sw_press()
-{
-  byte sw_pin = digitalRead (18) ;
-}
-
-void encoder ()
-{
-  byte newPinA = digitalRead (2);
-  byte newPinB = digitalRead (3);
-  
-  if (PinA == 0 && PinB == 0 )
-   {
-     if (newPinA == HIGH && newPinB == LOW )
-       { rotaryCount += 1;   }
-     if (newPinA == LOW && newPinB == HIGH )
-       { rotaryCount -= 1; }  
-   }  
- PinA = newPinA;  PinB = newPinB;
-
-}  // end of isr
-
-
-
+int band = 4 ;
+char band1[10];
+int freq_temp = 0;
 
 int16_t dallas(int x,byte start) 
 {
-  OneWire ds(x); 
-  byte i; 
-  byte data[2]; 
-  int16_t result; 
-  do
+    OneWire ds(x); 
+    byte i; 
+    byte data[2]; 
+    int16_t result; 
+    do
 {
-  ds.reset();
-  ds.write(0xCC); // Skip Command 
-  ds.write(0xBE); // Read 1st 2 bytes of Scratchpad 
-  for ( i = 0; i < 2; i++) data[i] = ds.read(); 
-  result=(data[1]<<8) | data[0]; 
-  result>>=4; if (data[1]&128) result|=61440; 
-  if (data[0]&8) ++result; 
-  ds.reset(); 
-  ds.write(0xCC); // Skip Command 
-  ds.write(0x44,1); // start conversion, assuming 5v connected 
-  if (start) delay(1000); 
-  } while (start--); 
-  return result;
-  
+    ds.reset();
+    ds.write(0xCC); // Skip Command 
+    ds.write(0xBE); // Read 1st 2 bytes 
+    for ( i = 0; i < 2; i++) data[i] = ds.read(); 
+    result=(data[1]<<8) | data[0]; 
+    result>>=4; if (data[1]&128) result|=61440; 
+    if (data[0]&8) ++result; 
+    ds.reset(); 
+    ds.write(0xCC); // skip Command 
+    ds.write(0x44,1); // start conversion
+    if (start) delay(1000); 
+    } while (start--); 
+    return result;
 }
 
+void sw_press(){ byte sw_pin = digitalRead (18) ;}
+
+void encoder (){
+    byte newPinA = digitalRead (21); byte newPinB = digitalRead (20);
+    if (PinA == 0 && PinB == 0 )
+    {
+        if (newPinA == HIGH && newPinB == LOW ) { band += 1; }
+        if (newPinA == LOW && newPinB == HIGH ) { band -= 1; }  
+    }  
+    PinA = newPinA;  PinB = newPinB;
+    if (band  < 1){band = 7;}
+    if (band > 7){band = 1;}
+    bandpass_filters(band) ;
+}  
+
 void setup() {
-    Serial.begin(9600) ; 
+    //Serial.begin(9600) ; 
     time1 = millis();
     tft.begin();
     tft.setRotation(1);
@@ -99,28 +88,34 @@ void setup() {
     tft.drawCentreString("RECEIVE !", 150,235, 4);
     tft.setTextColor(TFT_WHITE);
     tft.drawFastHLine(2, 283, 476, TFT_WHITE);
-    tft.drawCentreString("1.8     3.5     7     10-14     18-21     24-28     50", 240,290, 4);
+    tft.drawString("Filters  Freq  Set  On                         Mhz ", 10,290, 4);
     drawScale(); 
-    digitalWrite (2, HIGH);   // activate pull-up resistors
-    digitalWrite (3, HIGH); 
-    digitalWrite (18, HIGH);
-    digitalWrite (19, HIGH);
-    pinMode(7, OUTPUT) ;
-    attachInterrupt (0, encoder, CHANGE);   // pin 2
-    attachInterrupt (1, encoder, CHANGE);   // pin 3
+    digitalWrite (20, HIGH);   //  Encoder Arduino intrerupt number 3
+    digitalWrite (21, HIGH);   //  Encoder Arduino intrerupt number 2
+    digitalWrite (18, HIGH);   //  PTT Arduino intrerupt number 5
+    digitalWrite (19, HIGH);   //  Encoder SW Arduino intrerupt number  4
+    pinMode(0, OUTPUT) ; //   just to disable TX0
+    pinMode(1, OUTPUT) ; //   1.8 Mhz bandpass selection
+    pinMode(2, OUTPUT) ; //   3.5 Mhz bandpass selection
+    pinMode(3, OUTPUT) ; //     7 Mhz bandpass selection
+    pinMode(4, OUTPUT) ; // 10-14 Mhz bandpass selection
+    pinMode(5, OUTPUT) ; // 18-21 Mhz bandpass selection
+    pinMode(6, OUTPUT) ; // 24-28 Mhz bandpass selection
+    pinMode(7, OUTPUT) ; //    50 Mhz bandpass selection
+    pinMode(9, OUTPUT) ;       // PWM FAN Controll
+    attachInterrupt (2, encoder, CHANGE);   // pin 20
+    attachInterrupt (3, encoder, CHANGE);   // pin 21
     attachInterrupt (5, sw_press, CHANGE);   // pin 18
-    attachInterrupt (4, ptt, CHANGE);   // pin 18
-    dallas(A4,1); // merely start the ball rolling 
+    attachInterrupt (4, ptt, CHANGE);   // pin 19
+    dallas(A4,1); 
+    relay_zero(); // put all relays to off
+    bandpass_filters(band);
 }
 
 void drawScale(){ 
     tft.drawFastHLine(70, 60, 400, TFT_WHITE);
-    for (int i = 0; i <= 400; i+=20) {
-        tft.drawFastVLine(70+i , 60, 15, TFT_WHITE);
-    }
-    for (int i = 10; i <= 390; i+=20) {
-        tft.drawFastVLine(70+i , 60, 7, TFT_WHITE);
-    }
+    for (int i = 0;  i <= 400; i+=20) {tft.drawFastVLine(70+i , 60, 15, TFT_WHITE); }
+    for (int i = 10; i <= 390; i+=20) { tft.drawFastVLine(70+i , 60, 7, TFT_WHITE); }
     tft.drawCentreString("0", 70,40, 2); 
     tft.drawCentreString("100", 170,40, 2); 
     tft.drawCentreString("200", 270,40, 2); 
@@ -130,7 +125,7 @@ void drawScale(){
     tft.drawCentreString("REF", 30,100, 2);
     tft.fillRect(70,80,400,15,TFT_GREY);
     tft.fillRect(70,100,400,15,TFT_GREY);
-}
+    }
 
 void drawBar_FWD (int fwd_Per){
     if(fwd_Per < fwd_LastPercent){
@@ -166,10 +161,10 @@ void fault (int fault_param){
 }
 
 void ptt(){
-  tft.fillRect(70,230,150,30,TFT_BLACK);   
-  if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;}  
-  else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;}
-  } 
+    tft.fillRect(70,230,150,30,TFT_BLACK);   
+    if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;}  
+    else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;}
+    } 
 
   
 void fan (int speed) {
@@ -177,9 +172,7 @@ void fan (int speed) {
     if (speed > 100 ) { speed = 100 ; }
     String fan_pwm = String(speed);fan_pwm.toCharArray(fan_spd, 4);
     tft.fillRect(340,170,40,30,TFT_BLACK); tft.drawCentreString(fan_spd, 360,175, 4); 
-    analogWrite(7 ,speed*2.55) ; 
-    
-    
+    analogWrite(9 ,speed*2.55) ; 
     }
   
 void temperature() {
@@ -193,8 +186,36 @@ void temperature() {
       fan(fan_speed) ; 
       sensor_tmp = sensor ;
     }
-}    
+  }    
 
+void relay_zero() {
+    digitalWrite(0, LOW);
+    digitalWrite(1, LOW);
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(4, LOW);
+    digitalWrite(5, LOW);
+    digitalWrite(6, LOW);
+    digitalWrite(7, LOW);
+    }
+
+void bandpass_filters(int freq){
+  if (freq != freq_temp ){
+    relay_zero() ;
+    tft.fillRect(250,286,80,28,TFT_WHITE); tft.setTextColor(TFT_BLACK);
+    if (freq == 1)   {String bnd = "1.8"; bnd.toCharArray(band1, 10);   digitalWrite(1, HIGH);}
+    if (freq == 2) {  String bnd = "3.5"; bnd.toCharArray(band1, 10);   digitalWrite(2, HIGH);}
+    if (freq == 3) {    String bnd = "7"; bnd.toCharArray(band1, 10);   digitalWrite(3, HIGH);}
+    if (freq == 4) {String bnd = "10-14"; bnd.toCharArray(band1, 10);   digitalWrite(4, HIGH);}
+    if (freq == 5) {String bnd = "18-21"; bnd.toCharArray(band1, 10);   digitalWrite(5, HIGH);}
+    if (freq == 6) {String bnd = "24-28"; bnd.toCharArray(band1, 10);   digitalWrite(6, HIGH);}
+    if (freq == 7) {   String bnd = "50"; bnd.toCharArray(band1, 10);   digitalWrite(7, HIGH);}
+    tft.drawCentreString(band1, 290,290, 4);   
+    tft.setTextColor(TFT_WHITE);
+    freq_temp = freq;
+    //Serial.println(band1);
+  }
+}
 void loop(){
     int fwd_newPercent;
     int ref_newPercent;
@@ -209,10 +230,3 @@ void loop(){
     if ( (time2 -time1) >= 200 ){swr(vswr);time1 = millis();}
     
 }
-
-
-
-
-
-
-
