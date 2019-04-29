@@ -1,12 +1,14 @@
 #include <TFT_HX8357.h> // Hardware-specific library
 #include <OneWire.h> 
+#include <EEPROM.h>
+
 #define TFT_GREY 0x5AEB
-// Color Pallette
 #define BACKCOLOR 0x0000
 #define BARCOLOR 0x0620
 #define SCALECOLOR 0xFFFF
 TFT_HX8357 tft = TFT_HX8357(); // Invoke custom library
 
+int store_address = 0;
 volatile long rotaryCount = 0;
 static byte PinA = 0 ;
 static byte PinB = 0 ;  
@@ -28,49 +30,51 @@ int fault_param = 0;
 int mode = 0 ;
 int sensor =  20 ;
 float fan_speed = 0 ; 
-int band = 4 ;
+int band = EEPROM.read(0); 
 char band1[10];
 int freq_temp = 0;
 
 int16_t dallas(int x,byte start) 
 {
-    OneWire ds(x); 
-    byte i; 
-    byte data[2]; 
-    int16_t result; 
-    do
+  OneWire ds(x); 
+  byte i; 
+  byte data[2]; 
+  int16_t result; 
+  do
 {
-    ds.reset();
-    ds.write(0xCC); // Skip Command 
-    ds.write(0xBE); // Read 1st 2 bytes 
-    for ( i = 0; i < 2; i++) data[i] = ds.read(); 
-    result=(data[1]<<8) | data[0]; 
-    result>>=4; if (data[1]&128) result|=61440; 
-    if (data[0]&8) ++result; 
-    ds.reset(); 
-    ds.write(0xCC); // skip Command 
-    ds.write(0x44,1); // start conversion
-    if (start) delay(1000); 
-    } while (start--); 
-    return result;
+  ds.reset();
+  ds.write(0xCC); // Skip Command 
+  ds.write(0xBE); // Read 1st 2 bytes 
+  for ( i = 0; i < 2; i++) data[i] = ds.read(); 
+  result=(data[1]<<8) | data[0]; 
+  result>>=4; if (data[1]&128) result|=61440; 
+  if (data[0]&8) ++result; 
+  ds.reset(); 
+  ds.write(0xCC); // skip Command 
+  ds.write(0x44,1); // start conversion
+  if (start) delay(1000); 
+  } while (start--); 
+  return result;
 }
 
 void sw_press(){ byte sw_pin = digitalRead (18) ;}
 
 void encoder (){
-    byte newPinA = digitalRead (21); byte newPinB = digitalRead (20);
-    if (PinA == 0 && PinB == 0 )
-    {
-        if (newPinA == HIGH && newPinB == LOW ) { band += 1; }
-        if (newPinA == LOW && newPinB == HIGH ) { band -= 1; }  
-    }  
-    PinA = newPinA;  PinB = newPinB;
-    if (band  < 1){band = 7;}
-    if (band > 7){band = 1;}
-    bandpass_filters(band) ;
+  byte newPinA = digitalRead (21); byte newPinB = digitalRead (20);
+  if (PinA == 0 && PinB == 0 )
+   {
+     if (newPinA == HIGH && newPinB == LOW ) { band += 1; }
+     if (newPinA == LOW && newPinB == HIGH ) { band -= 1; }  
+   }  
+  PinA = newPinA;  PinB = newPinB;
+  if (band  < 1){band = 7;}
+  if (band > 7){band = 1;}
+  bandpass_filters(band) ;
+  EEPROM.write(0, band);
 }  
 
 void setup() {
+    //Serial.begin(9600) ; 
     time1 = millis();
     tft.begin();
     tft.setRotation(1);
@@ -89,10 +93,10 @@ void setup() {
     tft.drawFastHLine(2, 283, 476, TFT_WHITE);
     tft.drawString("Filters  Freq  Set  On                         Mhz ", 10,290, 4);
     drawScale(); 
-    digitalWrite (20, HIGH);   //  Encoder Arduino intrerupt number 3
-    digitalWrite (21, HIGH);   //  Encoder Arduino intrerupt number 2
-    digitalWrite (18, HIGH);   //  PTT Arduino intrerupt number 5
-    digitalWrite (19, HIGH);   //  Encoder SW Arduino intrerupt number  4
+    digitalWrite (20, HIGH);   //  Encoder intrerupt pin 3
+    digitalWrite (21, HIGH);   //  Encoder intrerupt pin 3 
+    digitalWrite (18, HIGH);   //  PTT inrerupt pin 4
+    digitalWrite (19, HIGH);   //  Encoder SW intrerupt pin 5
     pinMode(0, OUTPUT) ; //   just to disable TX0
     pinMode(1, OUTPUT) ; //   1.8 Mhz bandpass selection
     pinMode(2, OUTPUT) ; //   3.5 Mhz bandpass selection
@@ -143,7 +147,7 @@ void swr (float test){
     String sensorVal = String(test);
     sensorVal.toCharArray(vswr_printout, 4); 
     if (mode == 1 ) {
-        //if (int(vswr) > 1.8 ) {fault(1);} 
+        if (int(vswr) >= 2 ) {fault();} 
         tft.fillRect(380,221,50,39,TFT_BLACK);
         tft.drawCentreString(vswr_printout,400,235,4);
     } else {
@@ -152,18 +156,20 @@ void swr (float test){
         temperature() ;
 }
 
-void fault (int fault_param){
+void(* resetFunc) (void) = 0;//declare reset function at address 0
+void fault (){
     tft.fillScreen(TFT_RED);
-    tft.drawCentreString("LAST SWR OVER 1.7 !!!",200,115,4);
-    tft.drawCentreString("Enter MENU then select RESET !",200,215,4);
-    delay(2000);
+    tft.drawCentreString("LAST SWR OVER 2.0 !!!",200,115,4);
+    tft.drawCentreString("Wait 5 seconds for auto  RESET !",200,215,4);
+    delay(5000) ;
+    resetFunc() ;
 }
 
 void ptt(){
-    tft.fillRect(70,230,150,30,TFT_BLACK);   
-    if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;}  
-    else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;}
-    } 
+  tft.fillRect(70,230,150,30,TFT_BLACK);   
+  if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;}  
+  else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;}
+  } 
 
   
 void fan (int speed) {
@@ -188,15 +194,15 @@ void temperature() {
   }    
 
 void relay_zero() {
-    digitalWrite(0, LOW);
-    digitalWrite(1, LOW);
-    digitalWrite(2, LOW);
-    digitalWrite(3, LOW);
-    digitalWrite(4, LOW);
-    digitalWrite(5, LOW);
-    digitalWrite(6, LOW);
-    digitalWrite(7, LOW);
-    }
+  digitalWrite(0, LOW);
+  digitalWrite(1, LOW);
+  digitalWrite(2, LOW);
+  digitalWrite(3, LOW);
+  digitalWrite(4, LOW);
+  digitalWrite(5, LOW);
+  digitalWrite(6, LOW);
+  digitalWrite(7, LOW);
+}
 
 void bandpass_filters(int freq){
   if (freq != freq_temp ){
@@ -212,6 +218,7 @@ void bandpass_filters(int freq){
     tft.drawCentreString(band1, 290,290, 4);   
     tft.setTextColor(TFT_WHITE);
     freq_temp = freq;
+    //Serial.println(band1);
   }
 }
 void loop(){
