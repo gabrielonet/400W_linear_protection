@@ -1,4 +1,6 @@
 28_April_2019
+Do not initialize Serial !!!!!
+if  Serial.begin(9600) ;  is present in setup , then digital pin 0 and 1 will be enabled on HIGH allways!
 Got PTT line executed via intrerupts
 Got encoder executed via intrerupts
 Got encoder switch via intrerupts
