@@ -146,7 +146,7 @@ void drawBar_REF (int ref_Per){
         tft.fillRect(70 + ref_Per, 100 , (ref_LastPercent-ref_Per) , 15, TFT_GREY); 
     } else{ tft.fillRect(70 +ref_LastPercent,100 , (ref_Per - ref_LastPercent),15 ,TFT_RED); } 
     ref_LastPercent = ref_Per;
-    if (ref_Per > 10){fault(); }
+    if (ref_Per > 10*4){fault(); }
 }
 
 void swr (float test){
