@@ -27,6 +27,7 @@ float old_vswr ;
 unsigned long time1;
 unsigned long time2;
 int fault_param = 0;
+String error = "0" ; 
 int mode = 0 ;
 int sensor =  20 ;
 float fan_speed = 0 ; 
@@ -57,14 +58,14 @@ int16_t dallas(int x,byte start)
   return result;
 }
 
-void sw_press(){ byte sw_pin = digitalRead (18) ;}
+void sw_press(){ byte sw_pin = digitalRead (18) ;} // nothing  to do here yet 
 
 void encoder (){
   byte newPinA = digitalRead (21); byte newPinB = digitalRead (20);
-  if (PinA == 0 && PinB == 0 )
+  if (PinA == 1 && PinB == 1 )
    {
-     if (newPinA == HIGH && newPinB == LOW ) { band += 1; }
-     if (newPinA == LOW && newPinB == HIGH ) { band -= 1; }  
+     if (newPinA == HIGH && newPinB == LOW ) { band -= 1; }
+     if (newPinA == LOW && newPinB == HIGH ) { band += 1; }  
    }  
   PinA = newPinA;  PinB = newPinB;
   if (band  < 1){band = 7;}
@@ -105,15 +106,17 @@ void setup() {
     pinMode(5, OUTPUT) ; // 18-21 Mhz bandpass selection
     pinMode(6, OUTPUT) ; // 24-28 Mhz bandpass selection
     pinMode(7, OUTPUT) ; //    50 Mhz bandpass selection
-    pinMode(8, OUTPUT) ; //    PTT output - receive LOW , transmit HIGH 
-    digitalWrite(8, LOW) ; // Set PTT ooutput on receive
+    pinMode(8, OUTPUT) ; //    PTT output low power relay  - receive LOW , transmit HIGH 
+    digitalWrite(8, LOW) ; // Set relay  on receive
+    pinMode(10, OUTPUT) ; //    PTT output High Power relay  - receive LOW , transmit HIGH 
+    digitalWrite(10, LOW) ; // Set relay on receive
     pinMode(9, OUTPUT) ;       // PWM FAN Controll
     attachInterrupt (2, encoder, CHANGE);   // pin 20
     attachInterrupt (3, encoder, CHANGE);   // pin 21
     attachInterrupt (5, sw_press, CHANGE);   // pin 18
     attachInterrupt (4, ptt, CHANGE);   // pin 19
     dallas(A4,1); 
-    relay_zero(); // put all relays to off
+    //relay_zero(); // put all relays to off
     bandpass_filters(band);
 }
 
@@ -142,14 +145,15 @@ void drawBar_REF (int ref_Per){
     if(ref_Per < ref_LastPercent){
         tft.fillRect(70 + ref_Per, 100 , (ref_LastPercent-ref_Per) , 15, TFT_GREY); 
     } else{ tft.fillRect(70 +ref_LastPercent,100 , (ref_Per - ref_LastPercent),15 ,TFT_RED); } 
-    ref_LastPercent = ref_Per; 
+    ref_LastPercent = ref_Per;
+    if (ref_Per > 10){fault(); }
 }
 
 void swr (float test){
     String sensorVal = String(test);
     sensorVal.toCharArray(vswr_printout, 4); 
     if (mode == 1 ) {
-        if (int(vswr) >= 2 ) {fault();} 
+        if (int(vswr) >= 2  ) {fault();} 
         tft.fillRect(380,221,50,39,TFT_BLACK);
         tft.drawCentreString(vswr_printout,400,235,4);
     } else {
@@ -160,6 +164,7 @@ void swr (float test){
 
 void(* resetFunc) (void) = 0;//declare reset function at address 0
 void fault (){
+    error = "1";
     digitalWrite(8, LOW);
     tft.fillScreen(TFT_RED);
     tft.drawCentreString("LAST SWR OVER 2.0 !!!",200,115,4);
@@ -169,10 +174,27 @@ void fault (){
 }
 
 void ptt(){
-  tft.fillRect(70,230,150,30,TFT_BLACK);   
-  if (digitalRead (19) == LOW) { tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);  tft.setTextColor(TFT_WHITE);  mode = 1 ;digitalWrite(8, HIGH);}  
-  else {tft.setTextColor(TFT_GREEN);  tft.drawCentreString("RECEIVE !", 150,235, 4);  tft.setTextColor(TFT_WHITE);mode = 0  ;digitalWrite(8, LOW);}
+  
+  if(error == "0"){
+        tft.fillRect(70,230,150,30,TFT_BLACK);   
+    if (digitalRead (19) == LOW) { 
+      tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);
+      tft.setTextColor(TFT_WHITE);  mode = 1 ;
+      long start = millis();
+      digitalWrite(10, HIGH);
+      delay(10000);
+      digitalWrite(8, HIGH);
+       }  
+    else {
+      tft.setTextColor(TFT_GREEN);  
+      tft.drawCentreString("RECEIVE !", 150,235, 4);  
+      tft.setTextColor(TFT_WHITE);mode = 0  ;
+      digitalWrite(8, LOW);
+      delay(1000);
+      digitalWrite(10, LOW);
+      }
   } 
+}
 
   
 void fan (int speed) {
@@ -197,7 +219,7 @@ void temperature() {
   }    
 
 void relay_zero() {
-  digitalWrite(0, LOW);
+  //digitalWrite(0, LOW);
   digitalWrite(1, LOW);
   digitalWrite(2, LOW);
   digitalWrite(3, LOW);
@@ -238,3 +260,4 @@ void loop(){
     if ( (time2 -time1) >= 200 ){swr(vswr);time1 = millis();}
     
 }
+
