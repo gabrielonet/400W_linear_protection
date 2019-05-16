@@ -108,8 +108,8 @@ void setup() {
     pinMode(7, OUTPUT) ; //    50 Mhz bandpass selection
     pinMode(8, OUTPUT) ; //    PTT output low power relay  - receive LOW , transmit HIGH 
     digitalWrite(8, LOW) ; // Set relay  on receive
-    pinMode(10, OUTPUT) ; //    PTT output High Power relay  - receive LOW , transmit HIGH 
-    digitalWrite(10, LOW) ; // Set relay on receive
+    pinMode(11, OUTPUT) ; //    PTT output High Power relay  - receive LOW , transmit HIGH 
+    digitalWrite(11, LOW) ; // Set relay on receive
     pinMode(9, OUTPUT) ;       // PWM FAN Controll
     attachInterrupt (2, encoder, CHANGE);   // pin 20
     attachInterrupt (3, encoder, CHANGE);   // pin 21
@@ -181,7 +181,7 @@ void ptt(){
       tft.setTextColor(TFT_RED);  tft.drawCentreString("TRANSMIT !", 150,235, 4);
       tft.setTextColor(TFT_WHITE);  mode = 1 ;
       long start = millis();
-      digitalWrite(10, HIGH);
+      digitalWrite(11, HIGH);
       delay(10000);
       digitalWrite(8, HIGH);
        }  
@@ -191,7 +191,7 @@ void ptt(){
       tft.setTextColor(TFT_WHITE);mode = 0  ;
       digitalWrite(8, LOW);
       delay(1000);
-      digitalWrite(10, LOW);
+      digitalWrite(11, LOW);
       }
   } 
 }
@@ -212,7 +212,7 @@ void temperature() {
       tft.fillRect(25,170,150,30,TFT_BLACK);  
       String probe = String(sensor);probe.toCharArray(sensor1, 4);   tft.drawCentreString("*C", 140,175, 4);   
       tft.drawCentreString(sensor1, 100,175, 4);  
-      fan_speed = int((sensor - 40)*2.5) ;  // set fan 25% at 50 degrees
+      fan_speed = int(sensor*2) ;  // set fan 100% at 50 degrees
       fan(fan_speed) ; 
       sensor_tmp = sensor ;
     }
@@ -260,4 +260,3 @@ void loop(){
     if ( (time2 -time1) >= 200 ){swr(vswr);time1 = millis();}
     
 }
-
